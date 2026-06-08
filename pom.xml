@@ -62,6 +62,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Security Test — provides MockMvc user() and csrf() post-processors -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- WireMock for integration tests against external APIs -->
         <dependency>
             <groupId>org.wiremock</groupId>
