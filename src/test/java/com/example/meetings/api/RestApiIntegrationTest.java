@@ -585,4 +585,50 @@ class RestApiIntegrationTest {
                .andExpect(status().isNotFound());
         }
     }
+    
+ // =========================================================================
+    // 9. DISCOVER
+    // =========================================================================
+
+    
+    @Nested
+    @DisplayName("GET /discover")
+    class GetDiscover {
+
+        @Test
+        @DisplayName("returns 302 → /login for unauthenticated requests")
+        void discover_requiresAuthentication() throws Exception {
+            mvc.perform(get("/discover"))
+               .andExpect(status().is3xxRedirection())
+               .andExpect(redirectedUrlPattern("**/login"));
+        }
+
+        @Test
+        @DisplayName("returns 200 for authenticated user")
+        void discover_authenticated_returns200() throws Exception {
+            User u = createUser("discoverer");
+            mvc.perform(get("/discover")
+                    .with(user(u.getUsername()).password("x").roles("USER")))
+               .andExpect(status().isOk())
+               .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
+        }
+
+        @Test
+        @DisplayName("POST /discover/copy adds event to calendar and redirects")
+        void discoverCopy_validEvent_redirectsToCalendar() throws Exception {
+            User u = createUser("copier");
+            Instant start = Instant.now().plus(3, ChronoUnit.HOURS);
+
+            mvc.perform(post("/discover/copy")
+                    .with(csrf())
+                    .with(user(u.getUsername()).password("x").roles("USER"))
+                    .param("source",     "TestSource")
+                    .param("externalId", "ext-1")
+                    .param("title",      "Jazz Night")
+                    .param("start",      start.toString())
+                    .param("end",        start.plus(2, ChronoUnit.HOURS).toString()))
+               .andExpect(status().is3xxRedirection())
+               .andExpect(redirectedUrl("/calendar"));
+        }
+    }
 }
