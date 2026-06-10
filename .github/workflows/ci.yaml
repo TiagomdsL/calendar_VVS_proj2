@@ -38,7 +38,7 @@ jobs:
           mvn test \
             --batch-mode \
             --no-transfer-progress \
-            -Dexclude="**/e2e/**"
+            -Dexcludes="**/e2e/**"
 
       - name: Upload Surefire reports on failure
         if: failure()
