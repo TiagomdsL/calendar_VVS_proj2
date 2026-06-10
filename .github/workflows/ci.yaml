@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1 — Unit tests & Integration tests (no browser required)
+  #
+  # Covers:
+  #   • Unit tests        — MeetingServiceTest, UserServiceTest, ICalServiceTest
+  #   • DB integration    — MeetingRepositoryIntegrationTest  (@DataJpaTest + H2)
+  #   • REST API level    — RestApiIntegrationTest             (@SpringBootTest + MockMvc)
+  #   • 3rd-party sources — ProviderIntegrationTest            (WireMock)
+  #
+  # Runs on every push to every branch and on every PR targeting main.
+  # ---------------------------------------------------------------------------
+  unit-and-integration:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run unit and integration tests (exclude E2E)
+        run: |
+          mvn test \
+            --batch-mode \
+            --no-transfer-progress \
+            -Dexclude="**/e2e/**"
+
+      - name: Upload Surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — End-to-End tests (Selenium + headless Chrome)
+  #
+  # Covers:
+  #   • AuthE2ETest, CalendarPageE2ETest, MeetingE2ETest
+  #
+  # Only runs on push/PR to main to avoid spending runner minutes on every
+  # feature branch commit. The unit-and-integration job already runs on all
+  # branches and catches regressions early.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E Tests (Selenium)
+    runs-on: ubuntu-latest
+
+    # Only run E2E on main or on PRs targeting main
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+
+    # E2E tests should not block a merge if they are flaky — treat as a
+    # non-blocking quality gate. Remove `continue-on-error` if you want them
+    # to block merges.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Google Chrome (stable)
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Run E2E tests only
+        run: |
+          mvn test \
+            --batch-mode \
+            --no-transfer-progress \
+            -Dtest="**/e2e/**" \
+            -DfailIfNoTests=false
+
+      - name: Upload Surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-e2e
+          path: target/surefire-reports/
+          retention-days: 7
